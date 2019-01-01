@@ -80,6 +80,14 @@ parser.add_argument('--multiprocessing-distributed', action='store_true',
 best_acc1 = 0
 
 
+class ImageFolderWithPaths(datasets.ImageFolder):
+    def __getitem__(self, index):
+        original_tuple = super(ImageFolderWithPaths, self).__getitem__(index)
+        path = self.imgs[index][0]
+        tuple_with_path = (original_tuple + (path,))
+        return tuple_with_path
+
+
 def main():
     args = parser.parse_args()
 
@@ -223,7 +231,7 @@ def main_worker(gpu, ngpus_per_node, args):
         num_workers=args.workers, pin_memory=True, sampler=train_sampler)
 
     val_loader = torch.utils.data.DataLoader(
-        datasets.ImageFolder(valdir, transforms.Compose([
+        ImageFolderWithPaths(valdir, transforms.Compose([
             transforms.Resize(256),
             transforms.CenterCrop(224),
             transforms.ToTensor(),
@@ -323,7 +331,8 @@ def validate(val_loader, model, criterion, args):
 
     with torch.no_grad():
         end = time.time()
-        for i, (input, target) in enumerate(val_loader):
+        for i, (input, target, path) in enumerate(val_loader):
+
             if args.gpu is not None:
                 input = input.cuda(args.gpu, non_blocking=True)
             if not args.use_cpu:
@@ -343,7 +352,18 @@ def validate(val_loader, model, criterion, args):
             batch_time.update(time.time() - end)
             end = time.time()
 
-            if i % args.print_freq == 0:
+            if args.print_freq == 1 and args.batch_size == 1:
+                print('Test: [{0}/{1}]\t'
+                      'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
+                      'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
+                      'Acc@1 {top1.val:.3f} ({top1.avg:.3f})\t'
+                      'Acc@5 {top5.val:.3f} ({top5.avg:.3f})\t'
+                      '{path}\t'
+                      '{correct}'.format(
+                       i, len(val_loader), batch_time=batch_time, loss=losses,
+                       top1=top1, top5=top5, path=path[0],
+                       correct='True' if int(top1.val) == 100 else 'False'))
+            elif i % args.print_freq == 0:
                 print('Test: [{0}/{1}]\t'
                       'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                       'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
