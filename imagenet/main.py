@@ -342,8 +342,14 @@ def validate(val_loader, model, criterion, args):
             output = model(input)
             loss = criterion(output, target)
 
+            # compute class names
+            class_names = val_loader.dataset.classes
+
             # measure accuracy and record loss
             acc1, acc5 = accuracy(output, target, topk=(1, 5))
+            pred_percent, pred_class = predicted(output, 5, class_names)
+            target_class_name = class_names[int(target)]
+
             losses.update(loss.item(), input.size(0))
             top1.update(acc1[0], input.size(0))
             top5.update(acc5[0], input.size(0))
@@ -359,10 +365,18 @@ def validate(val_loader, model, criterion, args):
                       'Acc@1 {top1.val:.3f} ({top1.avg:.3f})\t'
                       'Acc@5 {top5.val:.3f} ({top5.avg:.3f})\t'
                       '{path}\t'
-                      '{correct}'.format(
-                       i, len(val_loader), batch_time=batch_time, loss=losses,
-                       top1=top1, top5=top5, path=path[0],
-                       correct='True' if int(top1.val) == 100 else 'False'))
+                      '{correct}\t'
+                      '{pred_class}\t'
+                      '{pred_percent}\t'
+                      '{real_class}'.format(
+                          i, len(val_loader), batch_time=batch_time, loss=losses,
+                          top1=top1, top5=top5, path=path[0],
+                          correct='True' if pred_class[0] == target_class_name else 'False',
+                          pred_class=','.join([str(x) for x in pred_class]),
+                          pred_percent=','.join([str(x) for x in pred_percent]),
+                          real_class=target_class_name
+                      )
+                )
             elif i % args.print_freq == 0:
                 print('Test: [{0}/{1}]\t'
                       'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
@@ -425,6 +439,18 @@ def accuracy(output, target, topk=(1,)):
             res.append(correct_k.mul_(100.0 / batch_size))
         return res
 
+def predicted(output, topk, class_names):
+    with torch.no_grad():
+        pred_percent, pred_class = output.topk(topk, 1, True, True)
+
+        pred_percent = pred_percent.tolist()[0]
+        pred_class = pred_class.tolist()[0]
+
+        # translate class ids into class names
+        for idx, class_id in enumerate(pred_class):
+            pred_class[idx] = class_names[class_id]
+
+        return [pred_percent, pred_class]
 
 if __name__ == '__main__':
     main()
