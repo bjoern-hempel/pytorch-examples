@@ -19,9 +19,17 @@ import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 import torchvision.models as models
 
+from datetime import datetime
+
+# some own imports
+from __log import *
+
 model_names = sorted(name for name in models.__dict__
     if name.islower() and not name.startswith("__")
     and callable(models.__dict__[name]))
+
+# define some global vars
+csv_handler = {}
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 parser.add_argument('data', metavar='DIR',
@@ -76,6 +84,8 @@ parser.add_argument('--multiprocessing-distributed', action='store_true',
                          'N processes per node, which has N GPUs. This is the '
                          'fastest way to use PyTorch for either single node or '
                          'multi node data parallel training')
+parser.add_argument('--write-csv-validated', default=None, type=str,
+                    help='path to write the validated csv')
 
 best_acc1 = 0
 
@@ -90,6 +100,28 @@ class ImageFolderWithPaths(datasets.ImageFolder):
 
 def main():
     args = parser.parse_args()
+
+    # prepare csv files
+    if args.write_csv_validated is not None:
+        csv_handler['csv_validated'] = getCSVHandler(
+            args.write_csv_validated,
+            'time required',
+            'file name',
+            'status',
+            'real class',
+            'predicted class 1',
+            'predicted class 1 (%)',
+            'predicted class 2',
+            'predicted class 2 (%)',
+            'predicted class 3',
+            'predicted class 3 (%)',
+            'predicted class 4',
+            'predicted class 4 (%)',
+            'predicted class 5',
+            'predicted class 5 (%)'
+        )
+    else:
+        csv_handler['csv_validated'] = None
 
     if args.seed is not None:
         random.seed(args.seed)
@@ -377,6 +409,26 @@ def validate(val_loader, model, criterion, args):
                           real_class=target_class_name
                       )
                 )
+
+                if csv_handler['csv_validated'] is not None:
+                    writeCSV(
+                        csv_handler['csv_validated'],
+                        False,
+                        batch_time.avg,
+                        path[0],
+                        pred_class[0] == target_class_name,
+                        target_class_name,
+                        pred_class[0],
+                        pred_percent[0],
+                        pred_class[1],
+                        pred_percent[1],
+                        pred_class[2],
+                        pred_percent[2],
+                        pred_class[3],
+                        pred_percent[3],
+                        pred_class[4],
+                        pred_percent[4]
+                    )
             elif i % args.print_freq == 0:
                 print('Test: [{0}/{1}]\t'
                       'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
