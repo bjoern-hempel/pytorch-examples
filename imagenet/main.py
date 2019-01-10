@@ -204,10 +204,46 @@ def main_worker(gpu, ngpus_per_node, args):
         print("=> creating model '{}'".format(args.arch))
         model = models.__dict__[args.arch]()
 
+    input_size = 224
+
     # set linear layer for output
     if args.linear_layer is not None:
-        num_ftrs = model.fc.in_features
-        model.fc = nn.Linear(num_ftrs, args.linear_layer)
+
+        if args.arch in ['resnet101', 'resnet152', 'resnet18', 'resnet34', 'resnet50']:
+            num_ftrs = model.fc.in_features
+            model.fc = nn.Linear(num_ftrs, args.linear_layer)
+            input_size = 224
+
+        elif args.arch in ['inception_v3']:
+            num_ftrs = model.AuxLogits.fc.in_features
+            model.AuxLogits.fc = nn.Linear(num_ftrs, args.linear_layer)
+            num_ftrs = model.fc.in_features
+            model.fc = nn.Linear(num_ftrs, args.linear_layer)
+            input_size = 299
+
+        elif args.arch in ['alexnet']:
+            num_ftrs = model.classifier[6].in_features
+            model.classifier[6] = nn.Linear(num_ftrs, args.linear_layer)
+            input_size = 224
+
+        elif args.arch in ['vgg11', 'vgg11_bn', 'vgg13', 'vgg13_bn', 'vgg16', 'vgg16_bn', 'vgg19', 'vgg19_bn']:
+            num_ftrs = model.classifier[6].in_features
+            model.classifier[6] = nn.Linear(num_ftrs, args.linear_layer)
+            input_size = 224
+
+        elif args.arch in ['squeezenet1_0', 'squeezenet1_1']:
+            model.classifier[1] = nn.Conv2d(512, args.linear_layer, kernel_size=(1, 1), stride=(1, 1))
+            model.num_classes = args.linear_layer
+            input_size = 224
+
+        elif args.arch in ['densenet121', 'densenet161', 'densenet169', 'densenet201']:
+            num_ftrs = model.classifier.in_features
+            model.classifier = nn.Linear(num_ftrs, args.linear_layer)
+            input_size = 224
+
+        else:
+            print('Invalid model name "{}", exiting...'.format(args.arch))
+            exit()
 
     if args.distributed:
         # For multiprocessing distributed, DistributedDataParallel constructor
@@ -277,10 +313,8 @@ def main_worker(gpu, ngpus_per_node, args):
     train_dataset = datasets.ImageFolder(
         traindir,
         transforms.Compose([
-            transforms.RandomResizedCrop(224),
+            transforms.RandomResizedCrop(input_size),
             transforms.RandomHorizontalFlip(),
-            #transforms.CenterCrop(240),
-            #transforms.Resize([299, 299]),
             transforms.ToTensor(),
             normalize,
         ]))
@@ -296,11 +330,8 @@ def main_worker(gpu, ngpus_per_node, args):
 
     val_loader = torch.utils.data.DataLoader(
         ImageFolderWithPaths(valdir, transforms.Compose([
-            #transforms.CenterCrop(240),
-            #transforms.Resize([299, 299]),  # inception v3 input size: 299x299x3
-            #transforms.ToTensor(),
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
+            transforms.Resize(input_size),
+            transforms.CenterCrop(input_size),
             transforms.ToTensor(),
             normalize,
         ])),
