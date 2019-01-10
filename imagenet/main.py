@@ -32,10 +32,7 @@ model_names = sorted(name for name in models.__dict__
 csv_handler = {}
 csv_files = {}
 time_start = datetime.datetime.now()
-accuracy_best = {
-    'train': 0,
-    'val': 0
-}
+accuracy_best = {'train': 0, 'val': 0, 'train5': 0, 'val5': 0}
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 parser.add_argument('data', metavar='DIR',
@@ -438,12 +435,16 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
                 len(train_loader) * args.batch_size, # images overall
                 (i + 1) * 100 / len(train_loader), # processed in percent
                 losses.avg, # loss
-                top1.avg, # accuracy in percent'
+                top1.avg, # accuracy in percent (top 1)
+                top5.avg, # accuracy in percent (top 5)
                 get_learning_rate_from_optimizer(optimizer) # learning rate
             )
 
-    # get best accuracy
+    # get best accuracy (top 1)
     accuracy_best['train'] = top1.avg if top1.avg > accuracy_best['train'] else accuracy_best['train']
+
+    # get best accuracy (top 5)
+    accuracy_best['train5'] = top5.avg if top5.avg > accuracy_best['train5'] else accuracy_best['train5']
 
     # write summary csv
     if csv_handler['csv_file_summary'] is not None:
@@ -456,8 +457,10 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
             args.epochs, # epoch number overall
             'train', # current phase (train or val)
             losses.avg, # loss
-            top1.avg, # accuracy in percent
-            accuracy_best['train'], # best accuracy in percent'
+            top1.avg, # accuracy in percent (top 1)
+            accuracy_best['train'], # best accuracy in percent' (top 1)
+            top5.avg, # accuracy in percent (top 5)
+            accuracy_best['train5'], # best accuracy in percent' (top 5)
             get_learning_rate_from_optimizer(optimizer) # learning rate
         )
 
@@ -577,15 +580,19 @@ def validate(val_loader, model, criterion, args, epoch):
                     len(val_loader) * args.batch_size,  # images overall
                     (i + 1) * 100 / len(val_loader),  # processed in percent
                     losses.avg,  # loss
-                    top1.avg,  # accuracy in percent'
+                    top1.avg,  # accuracy in percent (top 1)
+                    top5.avg,  # accuracy in percent (top 5)
                     0 # learning rate
                 )
 
         print(' * Acc@1 {top1.avg:.3f} Acc@5 {top5.avg:.3f}'
               .format(top1=top1, top5=top5))
 
-        # get best accuracy
+        # get best accuracy (top 1)
         accuracy_best['val'] = top1.avg if top1.avg > accuracy_best['val'] else accuracy_best['val']
+
+        # get best accuracy (top 5)
+        accuracy_best['val5'] = top5.avg if top5.avg > accuracy_best['val5'] else accuracy_best['val5']
 
         # write summary csv
         if csv_handler['csv_file_summary'] is not None:
@@ -600,6 +607,8 @@ def validate(val_loader, model, criterion, args, epoch):
                 losses.avg, # loss
                 top1.avg, # accuracy in percent
                 accuracy_best['val'], # best accuracy in percent'
+                top5.avg, # accuracy in percent
+                accuracy_best['val5'], # best accuracy in percent'
                 0 # learning rate
             )
 
