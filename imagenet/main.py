@@ -615,7 +615,7 @@ def validate(val_loader, model, criterion, args, epoch):
     return top1.avg
 
 
-def save_checkpoint(state, is_best, args, filename='checkpoint.pth.tar'):
+def save_checkpoint(state, is_best, args):
 
     # build the target paths
     checkpoint_path = getFormatedPath(
@@ -704,7 +704,6 @@ def accuracy_count(output, target, topk=(1,)):
     """Computes the accuracy over the k top predictions for the specified values of k"""
     with torch.no_grad():
         maxk = max(topk)
-        batch_size = target.size(0)
 
         _, pred = output.topk(maxk, 1, True, True)
         pred = pred.t()
