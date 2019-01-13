@@ -10,13 +10,15 @@ import random
 import time
 import torch
 
+from __args import *
+
 
 """
 
 """
 def getFormatedPath(
     path=None,
-    name='validated',
+    settings={},
     epoch=0,
     time=None,
     learning_rate=0.001,
@@ -27,7 +29,7 @@ def getFormatedPath(
     pretrained=True,
     file='{}_lr{}_m{}_bs{}_w{}_wd{}_{}.{}csv'
 ):
-    file = file.replace('{}', name + '_e' + str(epoch) if epoch else name, 1)
+    file = file.replace('{}', settings['name'] + '_e' + str(epoch) if epoch else settings['name'], 1)
 
     file_formated = file.format(
         learning_rate,
@@ -39,7 +41,7 @@ def getFormatedPath(
         '' if time is None else datetime.datetime.fromtimestamp(time.timestamp()).strftime('%Y%m%d_%H%M%S') + '.'
     )
 
-    return os.path.join(path, file_formated) if path is not None else file_formated
+    return os.path.join(path, settings['model_name'], settings['input_size'], settings['device_name'], file_formated) if path is not None else file_formated
 
 
 """
@@ -68,7 +70,7 @@ def getCSVHandler(csv_file, *values):
 """
 
 """
-def getCSVHandlerWithHeader(path, name, epoch, args, time):
+def getCSVHandlerWithHeader(path, settings, epoch, args, time):
 
     headers = {
         'settings': [
@@ -91,21 +93,24 @@ def getCSVHandlerWithHeader(path, name, epoch, args, time):
         ]
     }
 
-    # prepare summary csv
-    csv_path = getFormatedPath(
-        path,
-        name,
-        epoch,
-        time,
-        args.lr,
-        args.momentum,
-        args.batch_size,
-        args.workers,
-        args.weight_decay,
-        args.pretrained
-    )
+    # validated -> get path from given model; otherwise calculate from given parameters
+    if settings['name'] == 'validated':
+        csv_path = get_validated_path_from_model(args.resume)
+    else:
+        csv_path = getFormatedPath(
+            path,
+            settings,
+            epoch,
+            time,
+            args.lr,
+            args.momentum,
+            args.batch_size,
+            args.workers,
+            args.weight_decay,
+            args.pretrained
+        )
 
-    header = headers[name]
+    header = headers[settings['name']]
 
     return getCSVHandler(
         csv_path,

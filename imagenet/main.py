@@ -5,6 +5,7 @@ import shutil
 import time
 import warnings
 import sys
+import pprint
 
 import torch
 import torch.nn as nn
@@ -23,6 +24,10 @@ from datetime import datetime
 
 # some own imports
 from __log import *
+from __args import *
+
+# pretty printer
+pp = pprint.PrettyPrinter(indent=4)
 
 model_names = sorted(name for name in models.__dict__
     if name.islower() and not name.startswith("__")
@@ -110,6 +115,11 @@ parser.add_argument('--model-path', default=None, type=str,
 
 best_acc1 = 0
 
+settings = {
+    'input_size': '224x224',
+    'device_name': 'gpu1060'
+}
+
 
 class ImageFolderWithPaths(datasets.ImageFolder):
     def __getitem__(self, index):
@@ -120,25 +130,77 @@ class ImageFolderWithPaths(datasets.ImageFolder):
 
 
 def main():
-    args = parser.parse_args()
+    args = analyseArgs(parser.parse_args())
+
+    settings['model_name'] = args.arch
 
     # write settings to csv file
     if args.csv_path_settings is not None:
-        csv_handler['csv_file_settings'] = getCSVHandlerWithHeader(args.csv_path_settings, 'settings', False, args, time_start)
+        csv_handler['csv_file_settings'] = getCSVHandlerWithHeader(
+            args.csv_path_settings,
+            {
+                'name': 'settings',
+                'model_name': settings['model_name'],
+                'input_size': settings['input_size'],
+                'device_name': settings['device_name']
+            },
+            False,
+            args,
+            time_start
+        )
     else:
         csv_handler['csv_file_settings'] = None
 
     # prepare summary csv file
     if args.csv_path_summary is not None:
-        csv_handler['csv_file_summary'] = getCSVHandlerWithHeader(args.csv_path_summary, 'summary', False, args, time_start)
+        csv_handler['csv_file_summary'] = getCSVHandlerWithHeader(
+            args.csv_path_summary,
+            {
+                'name': 'summary',
+                'model_name': settings['model_name'],
+                'input_size': settings['input_size'],
+                'device_name': settings['device_name']
+            },
+            False,
+            args,
+            time_start
+        )
     else:
         csv_handler['csv_file_summary'] = None
 
     # prepare summary csv file
     if args.csv_path_summary_full is not None:
-        csv_handler['csv_file_summary_full'] = getCSVHandlerWithHeader(args.csv_path_summary_full, 'summary_full', False, args, time_start)
+        csv_handler['csv_file_summary_full'] = getCSVHandlerWithHeader(
+            args.csv_path_summary_full,
+            {
+                'name': 'summary_full',
+                'model_name': settings['model_name'],
+                'input_size': settings['input_size'],
+                'device_name': settings['device_name']
+            },
+            False,
+            args,
+            time_start
+        )
     else:
         csv_handler['csv_file_summary_full'] = None
+
+    # prepare validated csv file
+    if args.csv_path_validated is not None:
+        csv_handler['csv_file_validated'] = getCSVHandlerWithHeader(
+            args.csv_path_validated,
+            {
+                'name': 'validated',
+                'model_name': settings['model_name'],
+                'input_size': settings['input_size'],
+                'device_name': settings['device_name']
+            },
+            False,
+            args,
+            time_start
+        )
+    else:
+        csv_handler['csv_file_validated'] = None
 
     # write settings
     if csv_handler['csv_file_settings'] is not None:
@@ -474,13 +536,6 @@ def validate(val_loader, model, criterion, args, epoch):
     # switch to evaluate mode
     model.eval()
 
-    # prepare summary csv file
-    if args.csv_path_validated is not None:
-        csv_handler['csv_file_validated'] = getCSVHandlerWithHeader(args.csv_path_validated, 'validated', epoch + 1, args,
-                                                                    time_start)
-    else:
-        csv_handler['csv_file_validated'] = None
-
     with torch.no_grad():
 
         end = time.time()
@@ -620,7 +675,12 @@ def save_checkpoint(state, is_best, args):
     # build the target paths
     checkpoint_path = getFormatedPath(
         args.model_path,
-        'checkpoint',
+        {
+            'name': 'checkpoint',
+            'model_name': args.arch,
+            'input_size': settings['input_size'],
+            'device_name': settings['device_name']
+        },
         0,
         time_start,
         args.lr,
@@ -634,7 +694,12 @@ def save_checkpoint(state, is_best, args):
 
     best_path = getFormatedPath(
         args.model_path,
-        'model_best',
+        {
+            'name': 'model_best',
+            'model_name': args.arch,
+            'input_size': settings['input_size'],
+            'device_name': settings['device_name']
+        },
         0,
         time_start,
         args.lr,
